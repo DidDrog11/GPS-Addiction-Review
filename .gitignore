@@ -47,3 +47,10 @@ po/*~
 
 # RStudio Connect folder
 rsconnect/
+
+# API secrets
+/.secrets/   
+
+# Don't upload publications or draft manuscripts
+*.pdf
+*.docx
