@@ -4,10 +4,10 @@
 # -------------------------------------------------------------------------
 
 source(here::here("R", "00_setup.R"))
-
+ 
 # 1. Load the data
 # -------------------------------------------------------------------------
-raw_path <- here("data", "01_raw_searches", "articles_2025-11-28.xlsx")
+raw_path <- here("data", "01_raw_searches", "articles_2025-12-30.xlsx")
 df_raw <- read_excel(raw_path, .name_repair = "unique")
 
 message(paste("Loaded", nrow(df_raw), "rows with", ncol(df_raw), "columns."))
@@ -34,26 +34,17 @@ spillover_cols <- df_raw |>
 
 # Unite all messy columns into one "notes_spillover" column
 df_processed <- df_raw |>
-  unite(col = "notes_spillover", 
-        all_of(spillover_cols), 
-        sep = " ", 
-        na.rm = TRUE, 
-        remove = TRUE) |>
-  mutate(across(c(title, abstract, notes_spillover), \(x) {
-    x |> 
-      as.character() |>              # Ensure input is character
-      replace_na("") |>              # Handle NAs before regex
-      str_replace_all(mojibake_fixes) |> # Apply dictionary fixes
-      stringi::stri_trans_general("latin-ascii") |> # Transliterate remaining non-ASCII
-      str_squish()                   # Collapse excessive whitespace
-  })) |>
+  mutate(notes_spillover = "", 
+         across(c(title, abstract), \(x) {
+           x |> 
+             as.character() |>
+             replace_na("") |>
+             str_replace_all(mojibake_fixes) |>
+             stringi::stri_trans_general("latin-ascii") |>
+             str_squish() })) |>
   mutate(title = ifelse(str_detect(title, "^[A-Z\\W0-9]+$") & nchar(title) > 4,
                         str_to_sentence(title),
-                        title)) |>
-  # Create study id
-  mutate(study_id = paste0("GPS_", str_pad(row_number(), 4, pad = "0")),
-         search_text = tolower(paste(title, abstract, keywords, notes_spillover, sep = " "))) |>
-  relocate(study_id, .before = everything())
+                        title))
 
 # Exclusion list
 noise_biology <- c(
@@ -115,38 +106,71 @@ priority_pattern_addict <- paste(required_addiction, collapse = "|")
 priority_pattern_tech   <- paste(required_tech_geo, collapse = "|")
 
 # Apply Filter & Prioritisation
+# 
+hard_exclude_pattern <- paste(c(noise_biology, noise_engineering, noise_acronyms), collapse = "|")
+soft_exclude_pattern <- paste(noise_irrelevant_health, collapse = "|")
+
 df_final <- df_processed |>
-  mutate(text_for_exclusion = tolower(paste(title, keywords, sep = " ")), # Limited to checking titles and keywords only
+  mutate(text_for_exclusion = tolower(paste(title, keywords, sep = " ")),
          text_for_inclusion = tolower(paste(title, abstract, keywords, notes_spillover, sep = " ")),
-         exclude_flag = str_detect(text_for_exclusion, exclude_pattern),
-         has_addict = str_detect(text_for_inclusion, priority_pattern_addict),
-         has_tech   = str_detect(text_for_inclusion, priority_pattern_tech),
+         # 1. Flag presence of terms
+         has_hard_kill = str_detect(text_for_exclusion, hard_exclude_pattern),
+         has_soft_kill = str_detect(text_for_exclusion, soft_exclude_pattern),
+         has_addict    = str_detect(text_for_inclusion, priority_pattern_addict),
+         has_tech      = str_detect(text_for_inclusion, priority_pattern_tech),
+         # 2. Determine Priority
          is_high_priority = has_addict & has_tech,
-         screening_notes = case_when(is_high_priority ~ "High Priority: Matches Addiction + Tech",
-                                     !has_addict      ~ "Low Priority: No Addiction Term Found",
-                                     !has_tech        ~ "Low Priority: No Tech Term Found",
-                                     TRUE             ~ "Review Required")) |> # Screening notes for Rayyan
-  # Sort: High priority first
+         # 3. Determine Exclusion
+    exclude_flag = case_when(has_hard_kill    ~ TRUE,  # Rule 1: If it's a Rat/Drone, delete it
+                             is_high_priority ~ FALSE, # Rule 2: If it's High Priority, KEEP IT (Rescues Cancer/Cardio papers)
+                             has_soft_kill    ~ TRUE,  # Rule 3: If it's not High Priority but mentions Cancer, delete it.
+                             TRUE             ~ FALSE  # Rule 4: Keep everything else (Low Priority/Unsure).
+                             ),
+    screening_notes = case_when(has_hard_kill ~ "Excluded: Biology/Engineering",
+                                has_soft_kill & is_high_priority ~ "High Priority (Rescued from Health Exclusion)",
+                                has_soft_kill ~ "Excluded: Irrelevant Health Topic",
+                                is_high_priority ~ "High Priority: Matches Addiction + Tech",
+                                TRUE ~ "Review Required (Low Priority)")) |>
   arrange(desc(is_high_priority))
 
-write_xlsx(df_final |>
-             filter(!exclude_flag) |>
-             select(-text_for_exclusion, -text_for_inclusion, -search_text, -notes_spillover) |>
-             mutate(across(where(is.character), \(x) str_trunc(x, 32000))), 
-           here("data", "02_processed", "citations_for_rayyan_2025-11-28.xlsx"))
+# 5. DELTA MATCHING: Remove papers already screened
+old_path <- here("data", "02_processed", "previously_screened_2025-11-28.xlsx")
 
-# The Excluded Record (For PRISMA)
-# Filter: KEEP rows where exclude_flag is TRUE
-df_excluded <- df_final |> 
-  filter(exclude_flag)
+if(file.exists(old_path)) {
+  df_old <- read_excel(old_path, guess_max = 5000) |>
+    mutate(match_id = str_to_lower(title) |> str_remove_all("[[:punct:]]")) |>
+    drop_na(rating) |>
+    select(match_id, title, year, authors, doi)
+  df_final_tagged <- df_final |>
+    mutate(match_id = str_to_lower(title) |> str_remove_all("[[:punct:]]"))
+  df_delta <- df_final_tagged |>
+    anti_join(df_old, by = "match_id")
+  duplicates_count <- nrow(df_final) - nrow(df_delta)
+  message(paste("Removed", duplicates_count, "papers that were already in the Nov 28 set."))
+} else {
+  warning("Old screening file not found! Proceeding with full dataset.")
+  df_delta <- df_final
+}
 
-write_xlsx(df_excluded |>
-             select(-text_for_exclusion, -text_for_inclusion, -search_text, -notes_spillover) |>
-             mutate(across(where(is.character), \(x) str_trunc(x, 32000))), 
-           here("data", "02_processed", "excluded_by_string_matching_2025-11-28.xlsx"))
+# 6. Assign IDs & Save
+# -------------------------------------------------------------------------
+df_export_ready <- df_delta |>
+  mutate(study_id = paste0("GPS_DEC_", str_pad(row_number(), 4, pad = "0"))) |>
+  relocate(study_id, .before = everything()) |>
+  mutate(across(where(is.character), \(x) str_trunc(x, 32000)))
 
-message("--- EXPORT COMPLETE ---")
-message(paste("Sent to Rayyan:", nrow(df_final) - nrow(df_excluded)))
-message(paste("Excluded (PRISMA):", nrow(df_excluded)))
+# A. Save the papers to Screen (High Priority at top)
+df_screen <- df_export_ready |>
+  filter(!exclude_flag) |>
+  arrange(desc(is_high_priority)) |>
+  select(-text_for_exclusion, -text_for_inclusion, -match_id)
 
+write_xlsx(df_screen, here("data", "02_processed", "citations_to_screen_2025-12-30.xlsx"))
+
+# B. Save the Excluded (for PRISMA)
+df_excluded <- df_export_ready |> 
+  filter(exclude_flag) |>
+  select(-text_for_exclusion, -text_for_inclusion, -match_id)
+
+write_xlsx(df_excluded, here("data", "02_processed", "excluded_by_string_matching_2025-12-30.xlsx"))
            
