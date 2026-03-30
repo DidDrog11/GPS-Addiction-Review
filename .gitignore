@@ -54,3 +54,6 @@ rsconnect/
 # Don't upload publications or draft manuscripts
 *.pdf
 *.docx
+
+# Ignore .Rproj
+*.Rproj
