@@ -18,6 +18,7 @@ pacman::p_load(
   janitor,        # Cleaning column names (e.g., clean_names())
   readxl,         # Load xlsx files
   writexl,
+  PRISMA2020,
   
   # String Manipulation & Text Analysis
   stringi,
