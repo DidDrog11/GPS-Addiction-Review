@@ -206,7 +206,19 @@ df_main_final <- df_main_raw |>
     imputation_method_clean = case_when(str_detect(imputation_method, "None") ~ "None (Complete Case)",
                                         str_detect(imputation_method, "Last|Linear|Multiple") ~ "Statistical / Algorithmic",
                                         imputation_method == "Other" ~ "Other",
-                                        TRUE ~ NA_character_)) |>
+                                        TRUE ~ NA_character_),
+    
+    # Clean Dependence Scales
+    dependence_measure_clean = case_when(is.na(dependence_scales) | str_detect(str_to_lower(dependence_scales), "none") ~ "None reported / None used",
+                                         str_detect(str_to_lower(dependence_scales), "cigarettes per day|smoking within the first 30 minutes|average number of smoking events") ~ "Behavioural Count/Proxy (e.g., CPD)",
+                                         str_detect(str_to_lower(dependence_scales), "audit") ~ "Alcohol Scale (e.g., AUDIT)",
+                                         str_detect(str_to_lower(dependence_scales), "fagerstrom|hsi|heaviness") ~ "Tobacco Scale (e.g., Fagerström, HSI)",
+                                         TRUE ~ "Other Scale/Diagnostic Criteria (e.g., DSM-5, ASI, SADQ, NODS)"),
+    dependence_measure_clean = factor(dependence_measure_clean, levels = c("Alcohol Scale (e.g., AUDIT)",
+                                                                           "Tobacco Scale (e.g., Fagerström, HSI)",
+                                                                           "Other Scale/Diagnostic Criteria (e.g., DSM-5, ASI, SADQ, NODS)",
+                                                                           "Behavioural Count/Proxy (e.g., CPD)",
+                                                                           "None reported / None used"))) |>
   select(-temp_freq) |>
   # Order categories
   mutate(# Order GPS Device (Most common to least)
