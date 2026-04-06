@@ -20,17 +20,11 @@ df_qa   <- readRDS(here("data", "04_analytic_datasets", "cleaned_qa_combined.rds
 
 # Prepare behaviour stratification
 df_main <- df_main |>
-  mutate(
-    addictive_behaviour_clean = case_when(
-      str_detect(addictive_behaviour, ",") | str_detect(addictive_behaviour, "(?i)Polysubstance") ~ "Polysubstance/Multiple",
-      addictive_behaviour %in% c("Tobacco/Nicotine", "Alcohol", "Cannabis", "Opioids", "Gambling") ~ addictive_behaviour,
-      TRUE ~ "Other"
-    ),
-    behaviour_strat = case_when(
-      addictive_behaviour_clean %in% c("Alcohol", "Tobacco/Nicotine") ~ addictive_behaviour_clean,
-      TRUE ~ "Other (Cannabis, Opioids, Polysubstance)"
-    )
-  )
+  mutate(addictive_behaviour_clean = case_when(str_detect(addictive_behaviour, ",") | str_detect(addictive_behaviour, "(?i)Polysubstance") ~ "Polysubstance/Multiple",
+                                               addictive_behaviour %in% c("Tobacco/Nicotine", "Alcohol", "Cannabis", "Opioids", "Gambling") ~ addictive_behaviour,
+                                               TRUE ~ "Other"),
+    behaviour_strat = case_when(addictive_behaviour_clean %in% c("Alcohol", "Tobacco/Nicotine") ~ addictive_behaviour_clean,
+                                TRUE ~ "Other (Cannabis, Opioids, Polysubstance)"))
 
 n_studies <- nrow(df_main)
 
@@ -51,6 +45,79 @@ max_features    <- feature_summary["Max."]
 message(sprintf("GPS Features per study: Median = %.1f, IQR = %.1f, Range = [%d - %d]", 
                 median_features, iqr_features, min_features, max_features))
 
+# GPS QA
+is_reported <- function(x) {
+  !is.na(x) & !str_detect(str_to_lower(x), "^not reported$|^nr$|^unspecified$|^none$")
+}
+
+get_mode <- function(x) {
+  x_clean <- x[is_reported(x)]
+  if (length(x_clean) == 0) return("-")
+  freq_table <- sort(table(x_clean), decreasing = TRUE)
+  paste0(names(freq_table)[1], " (n=", freq_table[1], ")")
+}
+
+get_median_str <- function(x) {
+  x_num <- as.numeric(as.character(x[is_reported(x)]))
+  x_num <- x_num[!is.na(x_num)]
+  if (length(x_num) == 0) return("-")
+  paste0("Median: ", round(median(x_num), 1))
+}
+
+n_total <- nrow(df_main)
+
+df_gps_reporting <- tibble(`Practice` = c("P1: Report brand/model of GPS device",
+                                          "P2: Report sampling frequency",
+                                          "P3: Report intended wear time",
+                                          "P4: Report missing GPS data (% total)",
+                                          "P5: Identify method of GPS noise filtering",
+                                          "P6: Specify imputation method",
+                                          "P7: Report post-processing data linkage",
+                                          "P8: Report criteria for participant inclusion (cut-offs)"),
+                           `Reported (N)` = c(sum(is_reported(df_main$gps_device)),
+                                              sum(is_reported(df_main$gps_sampling_frequency_clean)),
+                                              sum(is_reported(df_main$gps_wear_time_intended)),
+                                              sum(is_reported(df_main$gps_perc_missing)),
+                                              sum(is_reported(df_main$noise_filtering)),
+                                              sum(is_reported(df_main$imputation_method_clean)),
+                                              sum(is_reported(df_main$post_processing_linkage)),
+                                              sum(is_reported(df_main$category_cutoff_participant))),
+                           `Most frequent (or median)` = c(get_mode(df_main$gps_device),
+                                                           get_mode(df_main$gps_sampling_frequency_clean),
+                                                           get_mode(df_main$gps_wear_time_intended),
+                                                           get_median_str(df_main$gps_perc_missing),
+                                                           get_mode(df_main$noise_filtering),
+                                                           get_mode(df_main$imputation_method_clean),
+                                                           get_mode(df_main$post_processing_linkage),
+                                                           get_mode(df_main$category_cutoff_participant))) |>
+  mutate(`Reported (%)` = round((`Reported (N)` / n_total) * 100, 1),
+         `Studies meeting criteria, n (%)` = sprintf("%d (%.1f%%)", `Reported (N)`, `Reported (%)`),
+         `Most frequent (or median)` = case_when(str_detect(Practice, "P7") ~ str_replace_all(`Most frequent (or median)`, "TRUE", "Yes"),
+                                                 str_detect(Practice, "P8") ~ str_replace_all(`Most frequent (or median)`, "_", " ") |> 
+                                                   str_to_title() |> 
+                                                   str_replace_all("Gps", "GPS"),
+                                                 TRUE ~ `Most frequent (or median)`)) |>
+  select(`Practice`, `Studies meeting criteria, n (%)`, `Most frequent (or median)`)
+
+# Create the Flextable
+table_gps_reporting <- df_gps_reporting |>
+  flextable() |>
+  set_header_labels(`Practice` = "Practices reported",
+                    `Studies meeting criteria, n (%)` = "Studies meeting criteria, n (%)",
+                    `Most frequent (or median)` = "Most frequent (number of studies or median)") |>
+  bold(part = "header") |>
+  align(j = 2:3, align = "center", part = "all") |>
+  width(j = 1, width = 2.5) |>
+  width(j = 2, width = 1.5) |>
+  width(j = 3, width = 2.5) |>
+  fontsize(size = 9, part = "all") |>
+  autofit()
+
+# Export
+dir.create(here("outputs", "tables"), showWarnings = FALSE, recursive = TRUE)
+table_gps_reporting |>
+  save_as_docx(path = here("outputs", "tables", "Table3_GPS_Reporting_Standards.docx"))
+
 # 3. Decision Rules (Intervention Studies Only)
 # -------------------------------------------------------------------------
 # Filter to only Experimental designs
@@ -64,10 +131,8 @@ valid_rules <- df_interventions |>
   drop_na(category_intervention_rule) |>
   filter(category_intervention_rule != "not_applicable") |>
   separate_longer_delim(category_intervention_rule, delim = regex(";\\s*")) |>
-  mutate(
-    rule_clean = str_replace_all(category_intervention_rule, "_", " "),
-    rule_clean = str_to_title(rule_clean)
-  ) |>
+  mutate(rule_clean = str_replace_all(category_intervention_rule, "_", " "),
+         rule_clean = str_to_title(rule_clean)) |>
   count(rule_clean, name = "Frequency") |>
   arrange(desc(Frequency))
 
@@ -112,7 +177,206 @@ p_features <- ggplot(plot_data_features, aes(x = Category, y = Frequency, fill =
         plot.title = element_text(face = "bold", margin = margin(b = 15)))
 
 dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-ggsave(here("outputs", "figures", "Figure2_GPS_Features_by_Behaviour.png"), plot = p_features, width = 9, height = 7, dpi = 300, bg = "white")
+ggsave(here("outputs", "figures", "Figure2_GPS_Features_by_Behaviour.png"), plot = p_features, width = 10, height = 7, dpi = 300, bg = "white")
+
+# 5. Quality Appraisal Individual
+# -------------------------------------------------------------------------
+
+# Controlled Interventions
+qa_questions_controlled <- c("Question 1 - Was the study described as randomised, a randomised trial, a randomised clinical trial, or an RCT?",
+                             "Question 2 - Was the method of randomisation adequate (i.e., use of randomly generated assignment)?",
+                             "Question 3 - Was the treatment allocation concealed (so that assignments could not be predicted)?",
+                             "Question 4 - Were study participants and providers blinded to treatment group assignment?",
+                             "Question 5 - Were the people assessing the outcomes blinded to the participants' group assignments?",
+                             "Question 6 - Were the groups similar at baseline on important characteristics that could affect outcomes (e.g., demographics, risk factors, co-morbid conditions)?",
+                             "Question 7 - Was the overall drop-out rate from the study at endpoint 20% or lower of the number allocated to treatment?",
+                             "Question 8 - Was the differential drop-out rate (between treatment groups) at endpoint 15 percentage points or lower?",
+                             "Question 9 - Was there high adherence to the intervention protocols for each treatment group?",
+                             "Question 10 - Were other interventions avoided or similar in the groups (e.g., similar background treatments)?",
+                             "Question 11 - Were outcomes assessed using valid and reliable measures, implemented consistently across all study participants?",
+                             "Question 12 - Did the authors report that the sample size was sufficiently large to be able to detect a difference in the main outcome between groups with at least 80% power?",
+                             "Question 13 - Were outcomes reported or subgroups analysed prespecified (i.e., identified before analyses were conducted)?",
+                             "Question 14 - Were all randomised participants analysed in the group to which they were originally assigned, i.e., did they use an intention-to-treat analysis?")
+
+# Combine into a single paragraph for document output
+qa_paragraph <- paste(qa_questions_controlled, collapse = "\n")
+
+# Categorise the studies
+df_qa_controlled_rated <- df_qa |>
+  filter(qa_design_tool == "Controlled Interventions") |>
+  mutate(overall_rating = case_when(# 1. Fatal Flaws -> POOR
+    # Triggered by 'No' OR 'Other' (NR, CD, NA) on drop-out (Q7, Q8), ITT (Q14), or Randomisation (Q2)
+    quality_7 %in% c("No", "Other") | 
+    quality_8 %in% c("No", "Other") | 
+    quality_14 %in% c("No", "Other") | 
+    quality_2 %in% c("No", "Other") ~ "Poor",
+      
+    # 2. Strong Methodology -> GOOD
+    # Must explicitly be 'Yes' on all key internal validity checks
+    quality_2 == "Yes" & quality_3 == "Yes" & quality_5 == "Yes" & quality_6 == "Yes" ~ "Good",
+    
+    # 3. Everything else -> FAIR
+    TRUE ~ "Fair"))
+
+# Check the distribution
+table(df_qa_controlled_rated$overall_rating, useNA = "ifany")
+
+# Pre-post
+qa_questions_prepost <- c("Question 1 - Was the study question or objective clearly stated?",
+                          "Question 2 - Were eligibility/selection criteria for the study population prespecified and clearly described?",
+                          "Question 3 - Were the participants in the study representative of those who would be eligible for the test/service/intervention in the general or clinical population of interest?",
+                          "Question 4 - Were all eligible participants that met the prespecified entry criteria enrolled?",
+                          "Question 5 - Was the sample size sufficiently large to provide confidence in the findings?",
+                          "Question 6 - Was the test/service/intervention clearly described and delivered consistently across the study population?",
+                          "Question 7 - Were the outcome measures prespecified, clearly defined, valid, reliable, and assessed consistently across all study participants?",
+                          "Question 8 - Were the people assessing the outcomes blinded to the participants' exposures/interventions?",
+                          "Question 9 - Was the loss to follow-up after baseline 20% or less? Were those lost to follow-up accounted for in the analysis?",
+                          "Question 10 - Did the statistical methods examine changes in outcome measures from before to after the intervention? Were statistical tests done that provided p values for the pre-to-post changes?",
+                          "Question 11 - Were outcome measures of interest taken multiple times before the intervention and multiple times after the intervention (i.e., did they use an interrupted time-series design)?",
+                          "Question 12 - If the intervention was conducted at a group level (e.g., a whole hospital, a community, etc.) did the statistical analysis take into account the use of individual-level data to determine effects at the group level?")
+
+# Combine into a single paragraph for document output (or bullet points later)
+qa_paragraph_prepost <- paste(qa_questions_prepost, collapse = "\n")
+
+df_qa_prepost_rated <- df_qa |>
+  filter(qa_design_tool == "Pre-Post") |>
+  mutate(overall_rating = case_when(# 1. Fatal Flaws -> POOR
+    # Triggered by 'No' or 'Other' (NR/CD/NA) on stats (Q10), outcomes (Q7), or follow-up (Q9)
+    quality_10 %in% c("No", "Other") | 
+    quality_7 %in% c("No", "Other") | 
+    quality_9 %in% c("No", "Other") ~ "Poor",
+    
+    # 2. Strong Methodology -> GOOD
+    # Must pass key internal validity: eligibility (Q2), intervention delivery (Q6), plus the criticals above
+    quality_2 == "Yes" & quality_6 == "Yes" & quality_7 == "Yes" & quality_9 == "Yes" & quality_10 == "Yes" ~ "Good",
+      
+    # 3. Everything else -> FAIR
+    TRUE ~ "Fair"))
+
+# Check the distribution
+table(df_qa_prepost_rated$overall_rating, useNA = "ifany")
+
+# Observational
+qa_questions_observational <- c("Question 1 - Was the research question or objective in this paper clearly stated?",
+                                "Question 2 - Was the study population clearly specified and defined?",
+                                "Question 3 - Was the participation rate of eligible persons at least 50%?",
+                                "Question 4 - Were all the subjects selected or recruited from the same or similar populations (including the same time period)? Were inclusion and exclusion criteria for being in the study prespecified and applied uniformly to all participants?",
+                                "Question 5 - Was a sample size justification, power description, or variance and effect estimates provided?",
+                                "Question 6 - For the analyses in this paper, were the exposure(s) of interest measured prior to the outcome(s) being measured?",
+                                "Question 7 - Was the timeframe sufficient so that one could reasonably expect to see an association between exposure and outcome if it existed?",
+                                "Question 8 - For exposures that can vary in amount or level, did the study examine different levels of the exposure as related to the outcome (e.g., categories of exposure, or exposure measured as continuous variable)?",
+                                "Question 9 - Were the exposure measures (independent variables) clearly defined, valid, reliable, and implemented consistently across all study participants?",
+                                "Question 10 - Was the exposure(s) assessed more than once over time?",
+                                "Question 11 - Were the outcome measures (dependent variables) clearly defined, valid, reliable, and implemented consistently across all study participants?",
+                                "Question 12 - Were the outcome assessors blinded to the exposure status of participants?",
+                                "Question 13 - Was loss to follow-up after baseline 20% or less?",
+                                "Question 14 - Were key potential confounding variables measured and adjusted statistically for their impact on the relationship between exposure(s) and outcome(s)?")
+
+qa_paragraph_observational <- paste(qa_questions_observational, collapse = "\n")
+
+df_qa_observational_rated <- df_qa |>
+  filter(qa_design_tool == "Observational") |>
+  mutate(overall_rating = case_when(# 1. Fatal Flaws -> POOR
+    # Triggered by 'No' or 'Other' (NR/CD/NA) on Exposure Prior (Q6), Valid Exposures (Q9), 
+    # Valid Outcomes (Q11), Follow-up Retention (Q13), or Confounding (Q14)
+    quality_6 %in% c("No", "Other") |
+    quality_9 %in% c("No", "Other") | 
+    quality_11 %in% c("No", "Other") | 
+    quality_13 %in% c("No", "Other") | 
+    quality_14 %in% c("No", "Other") ~ "Poor",
+      
+    # 2. Strong Methodology -> GOOD
+    # Must pass the criticals above, plus have a clearly defined population (Q2), 
+    # >50% participation (Q3), uniform selection criteria (Q4), and sufficient timeframe (Q7)
+    quality_2 == "Yes" & quality_3 == "Yes" & quality_4 == "Yes" & 
+    quality_6 == "Yes" & quality_7 == "Yes" & quality_9 == "Yes" & 
+    quality_11 == "Yes" & quality_13 == "Yes" & quality_14 == "Yes" ~ "Good",
+      
+    # 3. Everything else -> FAIR
+    TRUE ~ "Fair"))
+
+table(df_qa_observational_rated$overall_rating, useNA = "ifany")
+
+# Combine all rated QA datasets back together
+df_qa_fully_rated <- bind_rows(df_qa_controlled_rated,
+                               df_qa_prepost_rated,
+                               df_qa_observational_rated)
+
+# Check the final distribution across all study types
+table(df_qa_fully_rated$qa_design_tool, df_qa_fully_rated$overall_rating, useNA = "ifany")
+
+# Reusable function for QA supplementary export
+export_qa_supp_table <- function(data, questions_vec, doc_title, file_name, n_questions) {
+  
+  df_clean <- data |>
+    select(study_id, overall_rating, starts_with("quality_"))
+  
+  # Replace "Other" with the specific text from the _other column
+  for(i in 1:n_questions) {
+    col_base <- paste0("quality_", i)
+    col_other <- paste0("quality_", i, "_other")
+    
+    # Safety check in case a tool has fewer questions (e.g., Pre-Post has 12)
+    if(col_base %in% names(df_clean) && col_other %in% names(df_clean)) {
+      df_clean[[col_base]] <- ifelse(
+        df_clean[[col_base]] == "Other" & !is.na(df_clean[[col_other]]),
+        df_clean[[col_other]],
+        df_clean[[col_base]])
+    }
+  }
+  
+  # Drop the _other columns and clean up names
+  df_clean <- df_clean |>
+    select(-ends_with("_other")) |>
+    rename_with(~ str_replace(.x, "quality_", "Q"), starts_with("quality_")) |>
+    rename(`Study` = study_id, `Quality Rating` = overall_rating) |>
+    relocate(`Quality Rating`, .after = everything())
+  
+  # Build the Flextable
+  ft <- df_clean |>
+    flextable() |>
+    bold(part = "header") |>
+    align(j = 2:ncol(df_clean), align = "center", part = "all") |>
+    fontsize(size = 9, part = "all") |>
+    autofit()
+  
+  # Export to Word
+  dir.create(here("outputs", "tables"), showWarnings = FALSE, recursive = TRUE)
+  
+  doc <- read_docx() |>
+    body_add_par(doc_title, style = "heading 1")
+  
+  for (q in questions_vec) {
+    doc <- doc |> body_add_par(q, style = "Normal")
+  }
+  
+  doc <- doc |>
+    body_add_par("", style = "Normal") |> 
+    body_add_flextable(ft)
+  
+  print(doc, target = here("outputs", "tables", file_name))
+}
+
+if (!require("officer")) install.packages("officer")
+library(officer)
+
+export_qa_supp_table(data = df_qa_controlled_rated,
+                     questions_vec = qa_questions_controlled,
+                     doc_title = "Quality Assessment: Controlled Interventions",
+                     file_name = "supplementary_qa_controlled.docx",
+                     n_questions = 14)
+
+export_qa_supp_table(data = df_qa_prepost_rated,
+                     questions_vec = qa_questions_prepost,
+                     doc_title = "Quality Assessment: Before-After (Pre-Post) Studies",
+                     file_name = "supplementary_qa_prepost.docx",
+                     n_questions = 12)
+
+export_qa_supp_table(data = df_qa_observational_rated,
+                     questions_vec = qa_questions_observational,
+                     doc_title = "Quality Assessment: Observational Cohort Studies",
+                     file_name = "supplementary_qa_observational.docx",
+                     n_questions = 14)
 
 # 5. Quality Appraisal Summary
 # -------------------------------------------------------------------------
@@ -144,3 +408,5 @@ df_qa_summary |>
   fontsize(size = 9, part = "all") |>
   autofit() |>
   save_as_docx(path = here("outputs", "tables", "Table6_Quality_Appraisal.docx"))
+
+

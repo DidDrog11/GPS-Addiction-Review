@@ -95,18 +95,16 @@ calculate_multi_frequencies <- function(data, column_name, total_n) {
     drop_na({{ column_name }}) |>
     separate_longer_delim({{ column_name }}, delim = regex(";\\s*")) |>
     count({{ column_name }}, name = "Frequency") |>
-    mutate(
-      Percentage = (Frequency / total_n) * 100,
-      `Formatted Result` = sprintf("%d (%.1f%%)", Frequency, Percentage),
-      Category = str_replace_all({{ column_name }}, "_", " "),
-      Category = str_to_title(Category),
-      Category = str_replace_all(Category, "Gps", "GPS"),
-      Category = str_replace_all(Category, "Ema", "EMA"),
-      Category = str_replace_all(Category, "Gema", "GEMA")
-    ) |>
+    mutate(Percentage = (Frequency / total_n) * 100,
+           `Formatted Result` = sprintf("%d (%.1f%%)", Frequency, Percentage),
+           Category = str_replace_all({{ column_name }}, "_", " "),
+           Category = str_to_title(Category),
+           Category = str_replace_all(Category, "Gps", "GPS"),
+           Category = str_replace_all(Category, "Ema", "EMA"),
+           Category = str_replace_all(Category, "Gema", "GEMA")) |>
     select(Category, Frequency, Percentage, `Formatted Result`) |>
     arrange(desc(Frequency))
-}
+  }
 
 calculate_multi_comma <- function(data, column_name, total_n) {
   data |>
@@ -114,11 +112,9 @@ calculate_multi_comma <- function(data, column_name, total_n) {
     drop_na({{ column_name }}) |>
     separate_longer_delim({{ column_name }}, delim = regex(",\\s*")) |>
     count({{ column_name }}, name = "Frequency") |>
-    mutate(
-      Percentage = (Frequency / total_n) * 100,
-      `Formatted Result` = sprintf("%d (%.1f%%)", Frequency, Percentage),
-      Category = {{ column_name }} 
-    ) |>
+    mutate(Percentage = (Frequency / total_n) * 100,
+           `Formatted Result` = sprintf("%d (%.1f%%)", Frequency, Percentage),
+           Category = {{ column_name }}) |>
     select(Category, Frequency, Percentage, `Formatted Result`) |>
     arrange(desc(Frequency))
 }
@@ -130,18 +126,14 @@ calculate_stratified_multi <- function(data, column_name, group_var, delim_regex
     select(study_id, {{ group_var }}, {{ column_name }}) |>
     drop_na({{ column_name }}) |>
     separate_longer_delim({{ column_name }}, delim = regex(delim_regex)) |>
-    mutate(
-      Category = str_replace_all({{ column_name }}, "_", " "),
-      Category = str_to_title(Category),
-      Category = str_replace_all(Category, "Gps", "GPS"),
-      Category = str_replace_all(Category, "Ema", "EMA")
-    ) |>
+    mutate(Category = str_replace_all({{ column_name }}, "_", " "),
+           Category = str_to_title(Category),
+           Category = str_replace_all(Category, "Gps", "GPS"),
+           Category = str_replace_all(Category, "Ema", "EMA")) |>
     count({{ group_var }}, Category, name = "Frequency") |>
     left_join(group_totals, by = join_by({{ group_var }})) |>
-    mutate(
-      Percentage = (Frequency / group_total) * 100,
-      Formatted = sprintf("%d (%.1f%%)", Frequency, Percentage)
-    ) |>
+    mutate(Percentage = (Frequency / group_total) * 100,
+           Formatted = sprintf("%d (%.1f%%)", Frequency, Percentage)) |>
     select({{ group_var }}, Category, Formatted) |>
     pivot_wider(names_from = {{ group_var }}, values_from = Formatted, values_fill = "0 (0.0%)")
 }
@@ -176,13 +168,11 @@ join_strats <- function(overall, design, behav, var_name) {
     relocate(Variable, Category, `Overall N (%)`)
 }
 
-df_combined_dictionaries <- bind_rows(
-  join_strats(freq_cutoffs, cutoffs_by_design, cutoffs_by_behav, "Participant Cut-offs"),
-  join_strats(freq_ground_truth, ground_by_design, ground_by_behav, "Ground Truth Tier"),
-  join_strats(freq_noise_filter, noise_by_design, noise_by_behav, "Noise Filtering"),
-  join_strats(freq_tradeoffs, trade_by_design, trade_by_behav, "Methodological Trade-offs"),
-  join_strats(freq_barriers, barriers_by_design, barriers_by_behav, "Reported Barriers")
-) |>
+df_combined_dictionaries <- bind_rows(join_strats(freq_cutoffs, cutoffs_by_design, cutoffs_by_behav, "Participant Cut-offs"),
+                                      join_strats(freq_ground_truth, ground_by_design, ground_by_behav, "Ground Truth Tier"),
+                                      join_strats(freq_noise_filter, noise_by_design, noise_by_behav, "Noise Filtering"),
+                                      join_strats(freq_tradeoffs, trade_by_design, trade_by_behav, "Methodological Trade-offs"),
+                                      join_strats(freq_barriers, barriers_by_design, barriers_by_behav, "Reported Barriers")) |>
   mutate(across(everything(), ~ replace_na(., "0 (0.0%)"))) |>
   select(Variable,
          Category,
@@ -214,29 +204,31 @@ table3_dictionaries |>
 library(ggplot2)
 
 plot_data_tradeoffs <- df_gps |>
-  select(study_id, category_tradeoff) |>
+  select(study_id, design_strat, category_tradeoff) |>
   drop_na(category_tradeoff) |>
   separate_longer_delim(category_tradeoff, delim = regex(";\\s*")) |>
-  mutate(
-    Category = str_replace_all(category_tradeoff, "_", " "),
-    Category = str_to_title(Category),
-    Category = str_replace_all(Category, "Gps", "GPS"),
-    Category = str_replace_all(Category, "Ema", "EMA")
-  ) |>
-  count(Category, name = "Frequency") |>
-  mutate(
-    Percentage = (Frequency / n_studies) * 100,
-    Category = reorder(Category, Frequency)
-  )
+  mutate(Category = str_replace_all(category_tradeoff, "_", " "),
+         Category = str_to_title(Category),
+         Category = str_replace_all(Category, "Gps", "GPS"),
+         Category = str_replace_all(Category, "Ema", "EMA")) |>
+  count(Category, design_strat, name = "Frequency") |>
+  # Calculate total frequencies to order the bars
+  group_by(Category) |>
+  mutate(Total_Freq = sum(Frequency)) |>
+  ungroup() |>
+  mutate(Category = reorder(Category, Total_Freq))
 
-p_tradeoffs <- ggplot(plot_data_tradeoffs, aes(x = Category, y = Frequency)) +
-  geom_col(fill = "#2c3e50", width = 0.7) +
-  geom_text(aes(label = sprintf("%d (%.1f%%)", Frequency, Percentage)), hjust = -0.1, size = 3.5) +
-  scale_y_continuous(expand = expansion(mult = c(0, 0.15))) + 
+p_tradeoffs <- ggplot(plot_data_tradeoffs, aes(x = Category, y = Frequency, fill = design_strat)) +
+  geom_col(width = 0.7) +
   coord_flip() +
-  labs(title = "Reported Methodological Trade-offs", x = NULL, y = "Number of Studies") +
+  labs(title = "Reported Methodological Trade-offs by Study Design", 
+       x = NULL, 
+       y = "Number of Studies",
+       fill = "Study Design") +
+  scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
   theme_minimal() +
   theme(axis.text.y = element_text(size = 10, face = "bold"),
+        legend.position = "bottom",
         panel.grid.major.y = element_blank(),
         plot.title = element_text(face = "bold", margin = margin(b = 15)))
 

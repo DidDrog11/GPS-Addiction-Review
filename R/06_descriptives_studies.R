@@ -25,6 +25,7 @@ df_analysis <- df_main |>
          addictive_behaviour_clean = case_when(str_detect(addictive_behaviour, ",") | str_detect(addictive_behaviour, "(?i)Polysubstance") ~ "Polysubstance/Multiple",
                                                addictive_behaviour %in% c("Tobacco/Nicotine", "Alcohol", "Cannabis", "Opioids", "Gambling") ~ addictive_behaviour,
                                                TRUE ~ "Other"),
+         study_design = ifelse(str_detect(study_design, "Observational"), "Observational", study_design),
          design_strat = case_when(str_detect(study_design, "Observational") ~ "Observational",
                                   str_detect(study_design, "Experimental") ~ "Experimental",
                                   str_detect(study_design, "Qualitative|Mixed Methods") ~ "Qualitative / Mixed",

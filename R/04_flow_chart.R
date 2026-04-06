@@ -94,7 +94,8 @@ counts_lookup <- c(
   "other_assessed"             = as.character(n_other_sources),
   "other_excluded"             = NA_character_, 
   "new_studies"                = as.character(n_final_included),
-  "new_reports"                = NA_character_
+  "new_reports"                = NA_character_,
+  "total_studies"              = as.character(n_final_included)
 )
 
 prisma_df <- prisma_template |>
@@ -121,3 +122,7 @@ prisma_plot
 dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
 PRISMA_save(prisma_plot, filename = here("outputs", "figures", "PRISMA_flowchart_2026.pdf"))
 PRISMA_save(prisma_plot, filename = here("outputs", "figures", "PRISMA_flowchart_2026.png"))
+
+# 6. Included Studies Table
+# -------------------------------------------------------------------------
+
