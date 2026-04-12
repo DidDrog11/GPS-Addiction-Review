@@ -177,7 +177,7 @@ p_features <- ggplot(plot_data_features, aes(x = Category, y = Frequency, fill =
         plot.title = element_text(face = "bold", margin = margin(b = 15)))
 
 dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-ggsave(here("outputs", "figures", "Figure2_GPS_Features_by_Behaviour.png"), plot = p_features, width = 10, height = 7, dpi = 300, bg = "white")
+ggsave(here("outputs", "figures", "Figure3_GPS_Features_by_Behaviour.png"), plot = p_features, width = 10, height = 7, dpi = 300, bg = "white")
 
 # 5. Quality Appraisal Individual
 # -------------------------------------------------------------------------
@@ -407,6 +407,124 @@ df_qa_summary |>
   bold(j = 1, i = ~ !is.na(`Study Design`), bold = TRUE, part = "body") |>
   fontsize(size = 9, part = "all") |>
   autofit() |>
-  save_as_docx(path = here("outputs", "tables", "Table6_Quality_Appraisal.docx"))
+  save_as_docx(path = here("outputs", "tables", "Supp_Table2_Quality_Appraisal.docx"))
 
+# 7. Visualisations: Outcomes by Effect Direction
+# -------------------------------------------------------------------------
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+library(stringr)
 
+plot_data_outcomes <- df_main |>
+  mutate(combined_outcomes = coalesce(category_efficacy, category_observational)) |>
+  drop_na(combined_outcomes) |>
+  mutate(effect_direction = str_extract(combined_outcomes, "^[^;]+"),
+         specific_outcomes = str_remove(combined_outcomes, "^[^;]+;\\s*")) |>
+  mutate(effect_direction = case_when(str_detect(effect_direction, "positive") ~ "Positive",
+                                      str_detect(effect_direction, "negative") ~ "Negative",
+                                      str_detect(effect_direction, "mixed") ~ "Mixed",
+                                      str_detect(effect_direction, "descriptive") ~ "Descriptive",
+                                      str_detect(effect_direction, "unspecified") ~ "Unspecified",
+                                      TRUE ~ "Other"),
+         effect_direction = factor(effect_direction, levels = c("Positive", "Mixed", "Negative", "Unspecified", "Descriptive")),
+         design_strat = case_when(str_detect(study_design, "Experimental") ~ "Experimental",
+                                  str_detect(study_design, "Observational") ~ "Observational",
+                                  str_detect(study_design, "Mixed") ~ "Mixed Methods",
+                                  str_detect(study_design, "Qualitative") ~ "Qualitative",
+                                  TRUE ~ "Other"),
+         design_strat = factor(design_strat, levels = c("Experimental", "Observational", "Mixed Methods", "Qualitative"))) |>
+  separate_longer_delim(specific_outcomes, delim = regex(";\\s*")) |>
+  mutate(Outcome = str_replace_all(specific_outcomes, "_", " "),
+         Outcome = str_to_title(Outcome)) |>
+  select(effect_direction, Outcome, behaviour_strat, design_strat)
+
+set.seed(42) 
+p_outcomes <- ggplot(plot_data_outcomes, aes(x = effect_direction, y = Outcome)) +
+  annotate("rect", xmin = 4.5, xmax = 5.5, ymin = -Inf, ymax = Inf, alpha = 0.15, fill = "grey40") +
+  geom_jitter(aes(colour = behaviour_strat, shape = design_strat), 
+              width = 0.25, height = 0.25, size = 3, alpha = 0.8) +
+  labs(title = "Reported Outcomes by Effect Direction, Addictive Behaviour, and Study Design",
+       x = "Reported Direction of Effect / Association",
+       y = "Reported Outcome Type",
+       colour = "Addictive Behaviour",
+       shape = "Study Design") +
+  scale_colour_manual(values = c("#E69F00", "#56B4E9", "#009E73")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+        axis.text.y = element_text(face = "bold"),
+        legend.position = "bottom",
+        legend.box = "vertical",
+        panel.grid.major = element_line(colour = "grey90"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold", margin = margin(b = 15)))
+
+dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
+
+ggsave(filename = here("outputs", "figures", "Figure5_Outcomes_by_Direction.png"), 
+       plot = p_outcomes, 
+       width = 11, 
+       height = 9, 
+       dpi = 300, 
+       bg = "white")
+
+# 8. Visualisations: GPS Features by Effect Direction
+# -------------------------------------------------------------------------
+plot_data_features_dir <- df_main |>
+  mutate(combined_outcomes = coalesce(category_efficacy, category_observational)) |>
+  # We need to drop NAs for both the outcome AND the GPS features
+  drop_na(combined_outcomes, category_gps_features_all) |>
+  mutate(effect_direction = str_extract(combined_outcomes, "^[^;]+")) |>
+  mutate(effect_direction = case_when(str_detect(effect_direction, "positive") ~ "Positive",
+                                      str_detect(effect_direction, "negative") ~ "Negative",
+                                      str_detect(effect_direction, "mixed") ~ "Mixed",
+                                      str_detect(effect_direction, "descriptive") ~ "Descriptive",
+                                      str_detect(effect_direction, "unspecified") ~ "Unspecified",
+                                      TRUE ~ "Other"),
+    effect_direction = factor(effect_direction, levels = c("Positive", "Mixed", "Negative", "Unspecified", "Descriptive")),
+    design_strat = case_when(str_detect(study_design, "Experimental") ~ "Experimental",
+                             str_detect(study_design, "Observational") ~ "Observational",
+                             str_detect(study_design, "Mixed") ~ "Mixed Methods",
+                             str_detect(study_design, "Qualitative") ~ "Qualitative",
+                             TRUE ~ "Other"),
+    design_strat = factor(design_strat, levels = c("Experimental", "Observational", "Mixed Methods", "Qualitative"))) |>
+  # Separate the GPS features into distinct rows
+  separate_longer_delim(category_gps_features_all, delim = regex(";\\s*")) |>
+  mutate(Feature = str_replace_all(category_gps_features_all, "_", " "),
+         Feature = str_to_title(Feature),
+         Feature = str_replace_all(Feature, "Gps", "GPS"),
+         Feature = str_replace_all(Feature, "Ema", "EMA"),
+         Feature = str_replace_all(Feature, "Patterns", "Patterns:"),
+         Feature = str_replace_all(Feature, "Visits", "Visits:"),
+         Feature = str_replace_all(Feature, "Exposure", "Exposure:"),
+         Feature = str_replace_all(Feature, "Metrics", "Metrics:")) |>
+  select(effect_direction, Feature, behaviour_strat, design_strat)
+
+set.seed(42) 
+p_features_dir <- ggplot(plot_data_features_dir, aes(x = effect_direction, y = Feature)) +
+  annotate("rect", xmin = 4.5, xmax = 5.5, ymin = -Inf, ymax = Inf, alpha = 0.15, fill = "grey40") +
+  geom_jitter(aes(colour = behaviour_strat, shape = design_strat), 
+              width = 0.25, height = 0.25, size = 3, alpha = 0.8) +
+  labs(title = "Reported GPS Features by Effect Direction, Addictive Behaviour, and Study Design",
+       x = "Reported Direction of Effect / Association",
+       y = "Utilised GPS Feature",
+       colour = "Addictive Behaviour",
+       shape = "Study Design") +
+  scale_colour_manual(values = c("#E69F00", "#56B4E9", "#009E73")) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, face = "bold"),
+        axis.text.y = element_text(face = "bold"),
+        legend.position = "bottom",
+        legend.box = "vertical",
+        panel.grid.major = element_line(colour = "grey90"),
+        panel.grid.minor = element_blank(),
+        plot.title = element_text(face = "bold", margin = margin(b = 15)))
+
+dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
+
+ggsave(filename = here("outputs", "figures", "Figure6_Features_by_Direction.png"), 
+       plot = p_features_dir, 
+       width = 11, 
+       height = 9, 
+       dpi = 300, 
+       bg = "white")

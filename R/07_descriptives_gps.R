@@ -197,7 +197,7 @@ table3_dictionaries <- df_combined_dictionaries |>
 dir.create(here("outputs", "tables"), showWarnings = FALSE, recursive = TRUE)
 
 table3_dictionaries |>
-  save_as_docx(path = here("outputs", "tables", "Table3_GPS_Methodology_Dictionaries.docx"))
+  save_as_docx(path = here("outputs", "tables", "Supp_Table1_GPS_Methodology_Dictionaries.docx"))
 
 # 5. Visualisations: Trade-off Reasons
 # -------------------------------------------------------------------------
@@ -233,4 +233,47 @@ p_tradeoffs <- ggplot(plot_data_tradeoffs, aes(x = Category, y = Frequency, fill
         plot.title = element_text(face = "bold", margin = margin(b = 15)))
 
 dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-ggsave(filename = here("outputs", "figures", "Figure1_Methodological_Tradeoffs.png"), plot = p_tradeoffs, width = 8, height = 6, dpi = 300, bg = "white")
+ggsave(filename = here("outputs", "figures", "Figure2_Methodological_Tradeoffs.png"), plot = p_tradeoffs, width = 8, height = 6, dpi = 300, bg = "white")
+
+# 5. Visualisations: Barriers
+# -------------------------------------------------------------------------
+
+plot_data_barriers <- df_gps |>
+  select(study_id, design_strat, category_barriers) |>
+  drop_na(category_barriers) |>
+  separate_longer_delim(category_barriers, delim = regex(";\\s*")) |>
+  mutate(
+    Category = str_replace_all(category_barriers, "_", " "),
+    Category = str_to_title(Category),
+    Category = str_replace_all(Category, "Gps", "GPS"),
+    Category = str_replace_all(Category, "Ema", "EMA"),
+    Category = str_replace_all(Category, "Covid", "COVID")
+  ) |>
+  count(Category, design_strat, name = "Frequency") |>
+  group_by(Category) |>
+  mutate(Total_Freq = sum(Frequency)) |>
+  ungroup() |>
+  mutate(Category = reorder(Category, Total_Freq))
+
+p_barriers <- ggplot(plot_data_barriers, aes(x = Category, y = Frequency, fill = design_strat)) +
+  geom_col(width = 0.7) +
+  coord_flip() +
+  labs(title = "Reported Barriers by Study Design", 
+       x = NULL, 
+       y = "Number of Studies",
+       fill = "Study Design") +
+  scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
+  theme_minimal() +
+  theme(axis.text.y = element_text(size = 10, face = "bold"),
+        legend.position = "bottom",
+        panel.grid.major.y = element_blank(),
+        plot.title = element_text(face = "bold", margin = margin(b = 15)))
+
+dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
+
+ggsave(filename = here("outputs", "figures", "Figure4_Reported_Barriers.png"), 
+       plot = p_barriers, 
+       width = 8, 
+       height = 6, 
+       dpi = 300, 
+       bg = "white")

@@ -92,7 +92,7 @@ counts_lookup <- c(
   "other_sought_reports"       = as.character(n_other_sources),
   "other_notretrieved_reports" = "0",
   "other_assessed"             = as.character(n_other_sources),
-  "other_excluded"             = NA_character_, 
+  "other_excluded"             = "0", 
   "new_studies"                = as.character(n_final_included),
   "new_reports"                = NA_character_,
   "total_studies"              = as.character(n_final_included)
@@ -120,8 +120,8 @@ prisma_plot
 
 # Save to outputs
 dir.create(here("outputs", "figures"), showWarnings = FALSE, recursive = TRUE)
-PRISMA_save(prisma_plot, filename = here("outputs", "figures", "PRISMA_flowchart_2026.pdf"))
-PRISMA_save(prisma_plot, filename = here("outputs", "figures", "PRISMA_flowchart_2026.png"))
+PRISMA_save(prisma_plot, filename = here("outputs", "figures", "PRISMA_flowchart_2026.pdf"), overwrite = T)
+PRISMA_save(prisma_plot, filename = here("outputs", "figures", "PRISMA_flowchart_2026.png"), overwrite = T)
 
 # 6. Included Studies Table
 # -------------------------------------------------------------------------
