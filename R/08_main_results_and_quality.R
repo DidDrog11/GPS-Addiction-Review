@@ -144,6 +144,26 @@ if(nrow(valid_rules) > 0) {
 
 # 4. Visualisations: GPS Features by Addictive Behaviour
 # -------------------------------------------------------------------------
+feature_hierarchy <- c(
+  "Unspecified",
+  "Time Weighted Metrics: General",
+  "Time Weighted Exposure: Environmental Context",
+  "Time Weighted Exposure: Disadvantaged Neighbourhood",
+  "Time Weighted Exposure: Addiction",
+  "Movement Patterns: Unspecified",
+  "Movement Patterns: Variability",
+  "Movement Patterns: Speed",
+  "Movement Patterns: Distance",
+  "Movement Patterns: Addiction",
+  "Raw Coordinates",
+  "Place Visits: General",
+  "Place Visits: Addiction",
+  "Proximity Based Exposure: General",
+  "Proximity Based Exposure: Environmental Context",
+  "Proximity Based Exposure: Disadvantaged Neighbourhood",
+  "Proximity Based Exposure: Addiction"
+)
+
 plot_data_features <- df_main |>
   select(study_id, behaviour_strat, category_gps_features_all) |>
   drop_na(category_gps_features_all) |>
@@ -156,14 +176,13 @@ plot_data_features <- df_main |>
          Category = str_replace_all(Category, "Exposure", "Exposure:"),
          Category = str_replace_all(Category, "Metrics", "Metrics:")) |>
   count(Category, behaviour_strat, name = "Frequency") |>
-  # Calculate total frequencies to order the bars
-  group_by(Category) |>
-  mutate(Total_Freq = sum(Frequency)) |>
-  ungroup() |>
-  mutate(Category = reorder(Category, Total_Freq))
+  # Order logically by methodological family rather than total frequency
+  mutate(Category = factor(Category, levels = feature_hierarchy)) |>
+  arrange(Category)
 
 p_features <- ggplot(plot_data_features, aes(x = Category, y = Frequency, fill = behaviour_strat)) +
   geom_col(width = 0.7) +
+  geom_text(aes(label = Frequency), position = position_stack(vjust = 0.5), size = 3, colour = "white", fontface = "bold") +
   coord_flip() +
   labs(title = "GPS Features Utilised by Addictive Behaviour",
        x = NULL, 
@@ -472,23 +491,21 @@ ggsave(filename = here("outputs", "figures", "Figure5_Outcomes_by_Direction.png"
 # -------------------------------------------------------------------------
 plot_data_features_dir <- df_main |>
   mutate(combined_outcomes = coalesce(category_efficacy, category_observational)) |>
-  # We need to drop NAs for both the outcome AND the GPS features
   drop_na(combined_outcomes, category_gps_features_all) |>
-  mutate(effect_direction = str_extract(combined_outcomes, "^[^;]+")) |>
-  mutate(effect_direction = case_when(str_detect(effect_direction, "positive") ~ "Positive",
+  mutate(effect_direction = str_extract(combined_outcomes, "^[^;]+"),
+         effect_direction = case_when(str_detect(effect_direction, "positive") ~ "Positive",
                                       str_detect(effect_direction, "negative") ~ "Negative",
                                       str_detect(effect_direction, "mixed") ~ "Mixed",
                                       str_detect(effect_direction, "descriptive") ~ "Descriptive",
                                       str_detect(effect_direction, "unspecified") ~ "Unspecified",
                                       TRUE ~ "Other"),
-    effect_direction = factor(effect_direction, levels = c("Positive", "Mixed", "Negative", "Unspecified", "Descriptive")),
-    design_strat = case_when(str_detect(study_design, "Experimental") ~ "Experimental",
-                             str_detect(study_design, "Observational") ~ "Observational",
-                             str_detect(study_design, "Mixed") ~ "Mixed Methods",
-                             str_detect(study_design, "Qualitative") ~ "Qualitative",
-                             TRUE ~ "Other"),
-    design_strat = factor(design_strat, levels = c("Experimental", "Observational", "Mixed Methods", "Qualitative"))) |>
-  # Separate the GPS features into distinct rows
+         effect_direction = factor(effect_direction, levels = c("Positive", "Mixed", "Negative", "Unspecified", "Descriptive")),
+         design_strat = case_when(str_detect(study_design, "Experimental") ~ "Experimental",
+                                  str_detect(study_design, "Observational") ~ "Observational",
+                                  str_detect(study_design, "Mixed") ~ "Mixed Methods",
+                                  str_detect(study_design, "Qualitative") ~ "Qualitative",
+                                  TRUE ~ "Other"),
+         design_strat = factor(design_strat, levels = c("Experimental", "Observational", "Mixed Methods", "Qualitative"))) |>
   separate_longer_delim(category_gps_features_all, delim = regex(";\\s*")) |>
   mutate(Feature = str_replace_all(category_gps_features_all, "_", " "),
          Feature = str_to_title(Feature),
@@ -497,12 +514,14 @@ plot_data_features_dir <- df_main |>
          Feature = str_replace_all(Feature, "Patterns", "Patterns:"),
          Feature = str_replace_all(Feature, "Visits", "Visits:"),
          Feature = str_replace_all(Feature, "Exposure", "Exposure:"),
-         Feature = str_replace_all(Feature, "Metrics", "Metrics:")) |>
+         Feature = str_replace_all(Feature, "Metrics", "Metrics:"),
+         # Apply the manual hierarchical factor ordering
+         Feature = factor(Feature, levels = feature_hierarchy)) |>
   select(effect_direction, Feature, behaviour_strat, design_strat)
 
 set.seed(42) 
 p_features_dir <- ggplot(plot_data_features_dir, aes(x = effect_direction, y = Feature)) +
-  annotate("rect", xmin = 4.5, xmax = 5.5, ymin = -Inf, ymax = Inf, alpha = 0.15, fill = "grey40") +
+  annotate("rect", xmin = 3.5, xmax = 5.5, ymin = -Inf, ymax = Inf, alpha = 0.15, fill = "grey40") +
   geom_jitter(aes(colour = behaviour_strat, shape = design_strat), 
               width = 0.25, height = 0.25, size = 3, alpha = 0.8) +
   labs(title = "Reported GPS Features by Effect Direction, Addictive Behaviour, and Study Design",

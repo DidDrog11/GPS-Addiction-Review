@@ -220,6 +220,7 @@ plot_data_tradeoffs <- df_gps |>
 
 p_tradeoffs <- ggplot(plot_data_tradeoffs, aes(x = Category, y = Frequency, fill = design_strat)) +
   geom_col(width = 0.7) +
+  geom_text(aes(label = Frequency), position = position_stack(vjust = 0.5), size = 3.5, colour = "white", fontface = "bold") +
   coord_flip() +
   labs(title = "Reported Methodological Trade-offs by Study Design", 
        x = NULL, 
@@ -257,6 +258,7 @@ plot_data_barriers <- df_gps |>
 
 p_barriers <- ggplot(plot_data_barriers, aes(x = Category, y = Frequency, fill = design_strat)) +
   geom_col(width = 0.7) +
+  geom_text(aes(label = Frequency), position = position_stack(vjust = 0.5), size = 3, colour = "white", fontface = "bold") +
   coord_flip() +
   labs(title = "Reported Barriers by Study Design", 
        x = NULL, 
