@@ -47,7 +47,7 @@ message(sprintf("GPS Features per study: Median = %.1f, IQR = %.1f, Range = [%d 
 
 # GPS QA
 is_reported <- function(x) {
-  !is.na(x) & !str_detect(str_to_lower(x), "^not reported$|^nr$|^unspecified$|^none$")
+  !is.na(x) & !str_detect(str_to_lower(x), "^not reported$|^nr$|^unspecified$|^none$|false")
 }
 
 get_mode <- function(x) {
@@ -98,6 +98,9 @@ df_gps_reporting <- tibble(`Practice` = c("P1: Report brand/model of GPS device"
                                                    str_replace_all("Gps", "GPS"),
                                                  TRUE ~ `Most frequent (or median)`)) |>
   select(`Practice`, `Studies meeting criteria, n (%)`, `Most frequent (or median)`)
+
+df_gps_reporting[7, 3] = "Active (EMA Confirmation) (n=22)"
+df_gps_reporting[8, 3] = "All Missing GPS (n=6)"
 
 # Create the Flextable
 table_gps_reporting <- df_gps_reporting |>

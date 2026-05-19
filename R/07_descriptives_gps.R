@@ -52,11 +52,14 @@ table_gps_design <- df_gps |>
          gps_device, gps_sampling_frequency_clean, imputation_method_clean,
          level_of_aggregation_time_clean, level_of_aggregation_space_clean,
          acceptability, open_data_code, maup_ugcop, sensitivity_maup) |>
+  mutate(across(where(is.factor), ~ fct_na_value_to_level(.x, level = "Not Reported")),
+         across(where(is.character), ~ replace_na(.x, "Not Reported")),
+         across(where(is.factor), fct_drop)) |>
   tbl_summary(by = design_strat,
               statistic = list(all_categorical() ~ "{n} ({p}%)"),
               missing = "ifany", 
               missing_text = "Not Reported",
-              label = shared_gps_labels ) |>
+              label = shared_gps_labels) |>
   add_overall() |>
   modify_header(all_stat_cols() ~ "**{level}**\n(N = {n})")
 
@@ -66,6 +69,9 @@ table_gps_behaviour <- df_gps |>
          gps_device, gps_sampling_frequency_clean, imputation_method_clean,
          level_of_aggregation_time_clean, level_of_aggregation_space_clean,
          acceptability, open_data_code, maup_ugcop, sensitivity_maup) |>
+  mutate(across(where(is.factor), ~ fct_na_value_to_level(.x, level = "Not Reported")),
+         across(where(is.character), ~ replace_na(.x, "Not Reported")),
+         across(where(is.factor), fct_drop)) |>
   tbl_summary(by = behaviour_strat,
               statistic = list(all_categorical() ~ "{n} ({p}%)"),
               missing = "ifany", 

@@ -30,6 +30,7 @@ df_analysis <- df_main |>
                                   str_detect(study_design, "Experimental") ~ "Experimental",
                                   str_detect(study_design, "Qualitative|Mixed Methods") ~ "Qualitative / Mixed",
                                   TRUE ~ "Other"),
+         country = ifelse(is.na(country), "Not Reported", country),
          behaviour_strat = case_when(addictive_behaviour_clean %in% c("Alcohol", "Tobacco/Nicotine") ~ addictive_behaviour_clean,
                                      TRUE ~ "Other (Cannabis, Opioids, Polysubstance)"))
 
