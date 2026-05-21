@@ -189,7 +189,7 @@ p_features <- ggplot(plot_data_features, aes(x = Category, y = Frequency, fill =
   coord_flip() +
   labs(title = "GPS Features Utilised by Addictive Behaviour",
        x = NULL, 
-       y = "Number of Studies",
+       y = "Number of Times Mentioned in Studies",
        fill = "Addictive Behaviour") +
   scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
   theme_minimal() +

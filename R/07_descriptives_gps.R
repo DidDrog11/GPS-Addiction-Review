@@ -230,7 +230,7 @@ p_tradeoffs <- ggplot(plot_data_tradeoffs, aes(x = Category, y = Frequency, fill
   coord_flip() +
   labs(title = "Reported Methodological Trade-offs by Study Design", 
        x = NULL, 
-       y = "Number of Studies",
+       y = "Number of Times Mentioned Across Studies",
        fill = "Study Design") +
   scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
   theme_minimal() +
@@ -268,7 +268,7 @@ p_barriers <- ggplot(plot_data_barriers, aes(x = Category, y = Frequency, fill =
   coord_flip() +
   labs(title = "Reported Barriers by Study Design", 
        x = NULL, 
-       y = "Number of Studies",
+       y = "Number of Times Mentioned Across Studies",
        fill = "Study Design") +
   scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
   theme_minimal() +
