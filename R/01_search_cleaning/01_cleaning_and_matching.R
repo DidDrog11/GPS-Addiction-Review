@@ -173,4 +173,13 @@ df_excluded <- df_export_ready |>
   select(-text_for_exclusion, -text_for_inclusion, -match_id)
 
 write_xlsx(df_excluded, here("data", "02_processed", "excluded_by_string_matching_2025-12-30.xlsx"))
-           
+
+# C. Randomly select 10% of Excluded for manual checking of exclusion criteria
+set.seed(42); excluded_by_string_matching_2025_12_30 |> 
+  slice_sample(n = subset) |> 
+  arrange(study_id) |>
+  pull(study_id) -> to_check
+
+excluded_by_string_matching_2025_12_30 |> 
+  filter(study_id %in% to_check) |> 
+  write_csv(here("data", "02_processed", "manual_check_of_exclude.csv"))
