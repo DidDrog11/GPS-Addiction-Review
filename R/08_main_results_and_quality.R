@@ -26,6 +26,10 @@ df_main <- df_main |>
     behaviour_strat = case_when(addictive_behaviour_clean %in% c("Alcohol", "Tobacco/Nicotine") ~ addictive_behaviour_clean,
                                 TRUE ~ "Other (Cannabis, Opioids, Polysubstance)"))
 
+# Exclude single-arm feasibility/acceptability studies from quality appraisal
+single_arm_ids <- df_main |> filter(str_detect(study_design, "Single-Arm")) |> pull(study_id)
+df_qa <- df_qa |> filter(!study_id %in% single_arm_ids)
+
 n_studies <- nrow(df_main)
 
 # 2. GPS Features per Study (Median, IQR, Range)
@@ -123,9 +127,9 @@ table_gps_reporting |>
 
 # 3. Decision Rules (Intervention Studies Only)
 # -------------------------------------------------------------------------
-# Filter to only Experimental designs
+# Filter to only Interventional designs
 df_interventions <- df_main |>
-  filter(str_detect(study_design, "Experimental"))
+  filter(str_detect(study_design, "Interventional"))
 
 n_interventions <- nrow(df_interventions)
 
@@ -141,7 +145,7 @@ valid_rules <- df_interventions |>
 
 if(nrow(valid_rules) > 0) {
   rules_text <- paste(paste0(valid_rules$rule_clean, " (n=", valid_rules$Frequency, ")"), collapse = ", ")
-  message(sprintf("Decision Rules Summary: Of the %d experimental studies, valid decision rules were: %s.", 
+  message(sprintf("Decision Rules Summary: Of the %d interventional studies, valid decision rules were: %s.", 
                   n_interventions, rules_text))
 }
 
@@ -450,12 +454,11 @@ plot_data_outcomes <- df_main |>
                                       str_detect(effect_direction, "unspecified") ~ "Unspecified",
                                       TRUE ~ "Other"),
          effect_direction = factor(effect_direction, levels = c("Positive", "Mixed", "Negative", "Unspecified", "Descriptive")),
-         design_strat = case_when(str_detect(study_design, "Experimental") ~ "Experimental",
-                                  str_detect(study_design, "Observational") ~ "Observational",
-                                  str_detect(study_design, "Mixed") ~ "Mixed Methods",
-                                  str_detect(study_design, "Qualitative") ~ "Qualitative",
-                                  TRUE ~ "Other"),
-         design_strat = factor(design_strat, levels = c("Experimental", "Observational", "Mixed Methods", "Qualitative"))) |>
+         design_strat = case_when(str_detect(study_design, "Longitudinal Cohort") ~ "Observational",
+                         str_detect(study_design, "Randomised Controlled") ~ "Randomised Controlled",
+                         str_detect(study_design, "Pre-Post") ~ "Pre-Post",
+                         str_detect(study_design, "Single-Arm") ~ "Single-Arm Feasibility"),
+         design_strat = factor(design_strat, levels = c("Observational", "Randomised Controlled", "Pre-Post", "Single-Arm Feasibility"))) |>
   separate_longer_delim(specific_outcomes, delim = regex(";\\s*")) |>
   mutate(Outcome = str_replace_all(specific_outcomes, "_", " "),
          Outcome = str_to_title(Outcome)) |>
@@ -503,12 +506,11 @@ plot_data_features_dir <- df_main |>
                                       str_detect(effect_direction, "unspecified") ~ "Unspecified",
                                       TRUE ~ "Other"),
          effect_direction = factor(effect_direction, levels = c("Positive", "Mixed", "Negative", "Unspecified", "Descriptive")),
-         design_strat = case_when(str_detect(study_design, "Experimental") ~ "Experimental",
-                                  str_detect(study_design, "Observational") ~ "Observational",
-                                  str_detect(study_design, "Mixed") ~ "Mixed Methods",
-                                  str_detect(study_design, "Qualitative") ~ "Qualitative",
-                                  TRUE ~ "Other"),
-         design_strat = factor(design_strat, levels = c("Experimental", "Observational", "Mixed Methods", "Qualitative"))) |>
+         design_strat = case_when(str_detect(study_design, "Longitudinal Cohort") ~ "Observational",
+                         str_detect(study_design, "Randomised Controlled") ~ "Randomised Controlled",
+                         str_detect(study_design, "Pre-Post") ~ "Pre-Post",
+                         str_detect(study_design, "Single-Arm") ~ "Single-Arm Feasibility"),
+         design_strat = factor(design_strat, levels = c("Observational", "Randomised Controlled", "Pre-Post", "Single-Arm Feasibility"))) |>
   separate_longer_delim(category_gps_features_all, delim = regex(";\\s*")) |>
   mutate(Feature = str_replace_all(category_gps_features_all, "_", " "),
          Feature = str_to_title(Feature),

@@ -67,10 +67,16 @@ dict_efficacy <- raw_dicts |>
 dict_observation <- raw_dicts |> 
   purrr::pluck("observational_results") |> 
   clean_names()
-dict_barriers <- raw_dicts |> 
-  purrr::pluck("reported_barriers") |> 
-  clean_names()
-
+dict_barriers <- raw_dicts |>
+  purrr::pluck("reported_barriers") |>
+  clean_names() |>
+  # Correction: typo in coding sheet (Hope 2025, study 29)
+  mutate(codes = str_replace_all(codes, "participant_burned", "participant_burden"))
+dict_poi <- raw_dicts |>
+  purrr::pluck("poi") |>
+  clean_names() |>
+  mutate(study_id = map_chr(study_id, as.character)) |>
+  select(study_id, poi_category, poi_description)
 
 # 4. Apply Dictionary Matching
 # -------------------------------------------------------------------------
@@ -121,7 +127,11 @@ df_features_matched <- df_main_matched |>
 # Attach the features back to the main dataset
 df_main_raw <- df_main_matched |>
   left_join(df_features_matched, by = "study_id") |>
-  mutate(category_gps_features_all = na_if(category_gps_features_all, ""))
+  mutate(category_gps_features_all = na_if(category_gps_features_all, "")) |>
+  left_join(dict_poi, by = "study_id") |>
+  mutate(poi_category = replace_na(poi_category, "None"))
+
+stopifnot(all(dict_poi$study_id %in% df_main_raw$study_id))
 
 # 5. Data Quality Cleaning
 # -------------------------------------------------------------------------
