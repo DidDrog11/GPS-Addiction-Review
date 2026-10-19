@@ -1,9 +1,9 @@
 # Use of GPS to detect, predict and intervene on addictive behaviours: A Systematic Review
 
 ## Overview
-This repository contains the code and reproducible workflow for a systematic review examining the use of GPS data in addiction research. The review protocol is registered at [PROSPERO LINK / OSF LINK].
+This repository contains the code and reproducible workflow for a systematic review examining the use of GPS data in addiction research. The review protocol is registered at [PROSPERO](https://www.crd.york.ac.uk/PROSPERO/view/CRD420251247450).
 
-**Note:** This repository contains *code only*. Raw search results and full-text PDFs are stored in a secured location to comply with copyright and privacy standards.
+**Note:** This repository contains *code only*. Full-text PDFs are stored elsewhere to comply with copyright standards.
 
 ## Workflow & Directory Structure
 

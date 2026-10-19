@@ -25,14 +25,26 @@ df_analysis <- df_main |>
          addictive_behaviour_clean = case_when(str_detect(addictive_behaviour, ",") | str_detect(addictive_behaviour, "(?i)Polysubstance") ~ "Polysubstance/Multiple",
                                                addictive_behaviour %in% c("Tobacco/Nicotine", "Alcohol", "Cannabis", "Opioids", "Gambling") ~ addictive_behaviour,
                                                TRUE ~ "Other"),
-         study_design = ifelse(str_detect(study_design, "Observational"), "Observational", study_design),
-         design_strat = case_when(str_detect(study_design, "Observational") ~ "Observational",
-                                  str_detect(study_design, "Experimental") ~ "Experimental",
-                                  str_detect(study_design, "Qualitative|Mixed Methods") ~ "Qualitative / Mixed",
-                                  TRUE ~ "Other"),
+         study_design = str_replace(study_design, " - ", " – "),
+         study_design = factor(study_design, levels = c(
+          "Observational – Longitudinal Cohort (Quantitative)",
+          "Observational – Longitudinal Cohort (Mixed-Methods)",
+          "Interventional – Randomised Controlled Studies (Quantitative)",
+          "Interventional – Randomised Controlled Studies (Mixed-Methods)",
+          "Interventional – Pre-Post Studies (Quantitative)",
+          "Interventional – Pre-Post Studies (Mixed-Methods)",
+          "Interventional – Single-Arm Feasibility/Acceptability Study (Mixed-Methods)",
+          "Interventional – Single-Arm Feasibility/Acceptability Study (Qualitative)")),
+         design_strat = case_when(str_detect(study_design, "Longitudinal Cohort") ~ "Observational",
+                         str_detect(study_design, "Randomised Controlled") ~ "Randomised Controlled",
+                         str_detect(study_design, "Pre-Post") ~ "Pre-Post",
+                         str_detect(study_design, "Single-Arm") ~ "Single-Arm Feasibility"),
+         design_strat = factor(design_strat, levels = c("Observational", "Randomised Controlled", "Pre-Post", "Single-Arm Feasibility")),
          country = ifelse(is.na(country), "Not Reported", country),
          behaviour_strat = case_when(addictive_behaviour_clean %in% c("Alcohol", "Tobacco/Nicotine") ~ addictive_behaviour_clean,
                                      TRUE ~ "Other (Cannabis, Opioids, Polysubstance)"))
+
+stopifnot(!anyNA(df_analysis$design_strat))
 
 # 3. Study Characteristics Summary
 # -------------------------------------------------------------------------

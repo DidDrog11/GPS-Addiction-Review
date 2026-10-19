@@ -25,12 +25,23 @@ df_gps <- df_main |>
   mutate(addictive_behaviour_clean = case_when(str_detect(addictive_behaviour, ",") | str_detect(addictive_behaviour, "(?i)Polysubstance") ~ "Polysubstance/Multiple",
                                                addictive_behaviour %in% c("Tobacco/Nicotine", "Alcohol", "Cannabis", "Opioids", "Gambling") ~ addictive_behaviour,
                                                TRUE ~ "Other"),
-    design_strat = case_when(str_detect(study_design, "Observational") ~ "Observational",
-                             str_detect(study_design, "Experimental") ~ "Experimental",
-                             str_detect(study_design, "Qualitative|Mixed Methods") ~ "Qualitative / Mixed",
-                             TRUE ~ "Other"),
+    design_strat = case_when(str_detect(study_design, "Longitudinal Cohort") ~ "Observational",
+                         str_detect(study_design, "Randomised Controlled") ~ "Randomised Controlled",
+                         str_detect(study_design, "Pre-Post") ~ "Pre-Post",
+                         str_detect(study_design, "Single-Arm") ~ "Single-Arm Feasibility"),
+    design_strat = factor(design_strat, levels = c("Observational", "Randomised Controlled", "Pre-Post", "Single-Arm Feasibility")),
     behaviour_strat = case_when(addictive_behaviour_clean %in% c("Alcohol", "Tobacco/Nicotine") ~ addictive_behaviour_clean,
                                 TRUE ~ "Other (Cannabis, Opioids, Polysubstance)"))
+
+# POI data source: one indicator per category (studies can have more than one)
+df_gps <- df_gps |>
+  mutate(poi_src_registry = str_detect(poi_category, "Official registry"),
+         poi_src_commercial = str_detect(poi_category, "Commercial business list"),
+         poi_src_open_map = str_detect(poi_category, "Open map data"),
+         poi_src_defined = str_detect(poi_category, "Participant/researcher-defined"),
+         poi_src_area = str_detect(poi_category, "Area-level data"),
+         poi_src_not_reported = str_detect(poi_category, "Not reported"),
+         poi_src_none = str_detect(poi_category, "None"))
 
 # 3. GPS Methodology Summary (Stratified)
 # -------------------------------------------------------------------------
@@ -43,7 +54,14 @@ shared_gps_labels <- list(
   acceptability ~ "Acceptability Reported",
   open_data_code ~ "Open Data / Code Available",
   maup_ugcop ~ "MAUP/UGCoP Considered",
-  sensitivity_maup ~ "Sensitivity Analysis for MAUP"
+  sensitivity_maup ~ "Sensitivity Analysis for MAUP",
+  poi_src_registry ~ "Official registry",
+  poi_src_commercial ~ "Commercial business list",
+  poi_src_open_map ~ "Open map data",
+  poi_src_defined ~ "Participant/researcher-defined",
+  poi_src_area ~ "Area-level data",
+  poi_src_not_reported ~ "Not reported",
+  poi_src_none ~ "None"
 )
 
 # Table 2A: By Study Design
@@ -51,7 +69,8 @@ table_gps_design <- df_gps |>
   select(design_strat,
          gps_device, gps_sampling_frequency_clean, imputation_method_clean,
          level_of_aggregation_time_clean, level_of_aggregation_space_clean,
-         acceptability, open_data_code, maup_ugcop, sensitivity_maup) |>
+         acceptability, open_data_code, maup_ugcop, sensitivity_maup,
+        starts_with("poi_src_")) |>
   mutate(across(where(is.factor), ~ fct_na_value_to_level(.x, level = "Not Reported")),
          across(where(is.character), ~ replace_na(.x, "Not Reported")),
          across(where(is.factor), fct_drop)) |>
@@ -68,7 +87,8 @@ table_gps_behaviour <- df_gps |>
   select(behaviour_strat,
          gps_device, gps_sampling_frequency_clean, imputation_method_clean,
          level_of_aggregation_time_clean, level_of_aggregation_space_clean,
-         acceptability, open_data_code, maup_ugcop, sensitivity_maup) |>
+         acceptability, open_data_code, maup_ugcop, sensitivity_maup,
+        starts_with("poi_src_")) |>
   mutate(across(where(is.factor), ~ fct_na_value_to_level(.x, level = "Not Reported")),
          across(where(is.character), ~ replace_na(.x, "Not Reported")),
          across(where(is.factor), fct_drop)) |>
@@ -82,6 +102,7 @@ table_gps_behaviour <- df_gps |>
 table_gps_methodology <- tbl_merge(
   tbls = list(table_gps_design, table_gps_behaviour),
   tab_spanner = c("**By Study Design**", "**By Addictive Behaviour**")) |>
+  add_variable_group_header(header = "POI Data Source*", variables = starts_with("poi_src_")) |>
   bold_labels() |>
   modify_table_body(~ .x |> mutate(across(where(is.character), ~ str_replace_all(., "0 \\(NA%\\)", "0 (0%)"))))
 
@@ -89,9 +110,24 @@ dir.create(here("outputs", "tables"), showWarnings = FALSE, recursive = TRUE)
 
 table_gps_methodology |>
   as_flex_table() |>
+  flextable::add_footer_lines("* Studies could report more than one POI data source, so counts can sum to more than N.") |>
   flextable::fontsize(size = 9, part = "all") |>
   flextable::autofit() |>
   flextable::save_as_docx(path = here("outputs", "tables", "Table2_GPS_Methodology.docx"))
+
+# Supplementary Table: POI data sources
+supp_poi <- df_gps |>
+  filter(poi_category != "None") |>
+  mutate(Study = paste(author, year)) |>
+  arrange(poi_category, Study) |>
+  select(Study, `Study Design` = design_strat, `POI Data Source` = poi_category, Description = poi_description)
+
+supp_poi |>
+  flextable() |>
+  bold(part = "header") |>
+  fontsize(size = 9, part = "all") |>
+  width(j = 1:4, width = c(1.2, 1.1, 1.3, 2.9)) |>
+  save_as_docx(path = here("outputs", "tables", "Supp_Table3_POI_Data_Sources.docx"))
 
 # 4. Multi-Select Frequencies (Methodology Dictionaries)
 # -------------------------------------------------------------------------
@@ -183,7 +219,7 @@ df_combined_dictionaries <- bind_rows(join_strats(freq_cutoffs, cutoffs_by_desig
   select(Variable,
          Category,
          `Overall N (%)`,
-         Experimental, Observational, `Qualitative / Mixed`,
+         Observational, `Randomised Controlled`, `Pre-Post`, `Single-Arm Feasibility`,
          Alcohol, `Tobacco/Nicotine`, `Other (Cannabis, Opioids, Polysubstance)`)
 
 table3_dictionaries <- df_combined_dictionaries |>
@@ -193,7 +229,7 @@ table3_dictionaries <- df_combined_dictionaries |>
                     `Other (Cannabis, Opioids, Polysubstance)` = "Other") |>
   add_header_row(top = TRUE, 
                  values = c("", "", "By Study Design", "By Addictive Behaviour"), 
-                 colwidths = c(1, 1, 3, 3)) |>
+                 colwidths = c(1, 1, 4, 3)) |>
   align(i = 1, part = "header", align = "center") |>
   bold(part = "header") |>
   bold(j = 1, i = ~ !is.na(Variable), bold = TRUE, part = "body") |>
@@ -230,7 +266,7 @@ p_tradeoffs <- ggplot(plot_data_tradeoffs, aes(x = Category, y = Frequency, fill
   coord_flip() +
   labs(title = "Reported Methodological Trade-offs by Study Design", 
        x = NULL, 
-       y = "Number of Times Mentioned Across Studies",
+       y = "Number of Studies that Mentioned Each Methodological Trade-Off",
        fill = "Study Design") +
   scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
   theme_minimal() +
@@ -268,7 +304,7 @@ p_barriers <- ggplot(plot_data_barriers, aes(x = Category, y = Frequency, fill =
   coord_flip() +
   labs(title = "Reported Barriers by Study Design", 
        x = NULL, 
-       y = "Number of Times Mentioned Across Studies",
+       y = "Number of Studies that Mentioned Each Barrier",
        fill = "Study Design") +
   scale_fill_viridis_d(option = "mako", begin = 0.2, end = 0.8) +
   theme_minimal() +
