@@ -42,7 +42,7 @@ The project follows a linear 8-step workflow, divided into **Phase A (Screening)
 
 ## Data Extraction
 
-Each included study was extracted by one reviewer and checked by a second, following a Data Extraction Manual (01.01.26). Items not reported in a paper were entered as `NR`. The fields below are the columns of the extraction sheet (`data/03_for_extraction/raw_extraction_*.rds`). Categories listed for drop-down fields are those used across the included studies. Fields marked † were added to the sheet after the manual was written.
+Each included study was extracted by one reviewer and checked by a second, following a Data Extraction Manual (01.01.26). Items not reported in a paper were entered as `NR`. The fields below are the columns of the extraction sheet (`data/03_for_extraction/raw_extraction_*.rds`). Categories listed for drop-down fields are those used across the included studies. Fields marked  were added to the sheet after the manual was written.
 
 <details>
 <summary><b>1. Study identification</b></summary>
@@ -52,7 +52,7 @@ Each included study was extracted by one reviewer and checked by a second, follo
 | `study_id` | Assigned study ID (from the Full Texts folder) | ID |
 | `author`, `year` | First author and publication year | Text, year |
 | `country` | Country in which data collection took place | Text |
-| `duplicate_sample` † | Whether the sample overlaps with another included study, and which | Text (e.g. "yes, same sample as 11") |
+| `duplicate_sample`  | Whether the sample overlaps with another included study, and which | Text (e.g. "yes, same sample as 11") |
 
 Administrative columns (`nr`, `assigned to`, `double checked by`, `notes`) record the extractor, checker and queries.
 
@@ -65,7 +65,7 @@ Administrative columns (`nr`, `assigned to`, `double checked by`, `notes`) recor
 |---|---|---|
 | `addictive_behaviour` | Behaviour(s) studied | Alcohol; Tobacco/Nicotine; Cannabis; Opioids; Stimulants; Gambling; Polysubstance; Other |
 | `study_design` | Study design | Observational: Longitudinal/Cohort; Observational: Case-crossover; Experimental: RCT; Experimental: JITAI/Microrandomised; Mixed Methods; Qualitative |
-| `intervention` † | Whether the study delivered an intervention | yes / no |
+| `intervention`  | Whether the study delivered an intervention | yes / no |
 | `study_duration_days` | Study duration in days; days of GPS collection if these differ | Number |
 | `n_participants_eligible` | Participants eligible to take part | Number |
 | `n_participants_analytical` | Participants in the analytical sample | Number |
@@ -103,9 +103,9 @@ Administrative columns (`nr`, `assigned to`, `double checked by`, `notes`) recor
 | `perc_noisy` | Percentage of GPS data that was noisy (recorded but likely erroneous) | Number |
 | `gps_participant_level_cut_offs` | Cut-off for including a participant's data, e.g. ≥ 50% non-missing | Text, coded (see 10) |
 | `noise_filtering` | Method of noise detection and removal (data outside the study area = Manual Cleaning) | Manual Cleaning; Speed Thresholds; Accuracy/DOP Thresholds; None Reported; Other |
-| `noise_filtering_notes` † | Details of noise filtering | Text |
+| `noise_filtering_notes`  | Details of noise filtering | Text |
 | `imputation_method` | Handling of missing GPS data | Not Reported; None (Complete Case); Last Observation Carried Forward; Linear Interpolation; Multiple Imputation; Other |
-| `imputation_method_other` † | Details if Other | Text |
+| `imputation_method_other`  | Details if Other | Text |
 
 </details>
 
@@ -116,14 +116,14 @@ Administrative columns (`nr`, `assigned to`, `double checked by`, `notes`) recor
 |---|---|---|
 | `post_processing_linkage` | Whether GPS data were linked to GIS data (including points of interest) or survey responses such as EMA | Checkbox |
 | `ground_truth_tier` | Method used to validate the meaning of a location | Active (EMA Confirmation); Algorithmic (Dwell Time); GIS Buffer/Overlay; Linkage of Raw Coordinates Only; Other (multiple allowed) |
-| `ground_truth_tier_notes` † | Details of ground truthing | Text |
+| `ground_truth_tier_notes`  | Details of ground truthing | Text |
 | `poi_database` | Source of point-of-interest data linked to GPS | Official Registry; OpenStreetMap; Manual Mapping; Other; N/A |
-| `poi_database_other` † | Details if Other | Text |
-| `level_of_aggregation_time` † | Temporal unit over which GPS data were summarised | Text |
-| `level_of_aggregation_space` † | Spatial unit over which GPS data were summarised, e.g. buffer size | Text |
+| `poi_database_other`  | Details if Other | Text |
+| `level_of_aggregation_time`  | Temporal unit over which GPS data were summarised | Text |
+| `level_of_aggregation_space`  | Spatial unit over which GPS data were summarised, e.g. buffer size | Text |
 | `maup_ugcop` | Whether the study acknowledges the Modifiable Areal Unit Problem or the Uncertain Geographic Context Problem | Checkbox |
 | `sensitivity_maup` | Whether the study tests the sensitivity of its results to MAUP or UGCoP | Checkbox |
-| `sensitivity_maup_notes` † | Details of the sensitivity analysis | Text |
+| `sensitivity_maup_notes`  | Details of the sensitivity analysis | Text |
 | `anonymity` | Methods used to preserve anonymity, e.g. jittering | Text |
 
 </details>
@@ -146,7 +146,7 @@ Administrative columns (`nr`, `assigned to`, `double checked by`, `notes`) recor
 | Field | Description | Format |
 |---|---|---|
 | `intervention_decision_rule` | How the study decides to deliver an intervention, e.g. an if-then rule or a geofence | Text, coded (see 10) |
-| `intervention_GPS_triggered` † | Content delivered when the GPS trigger fires | Text |
+| `intervention_GPS_triggered`  | Content delivered when the GPS trigger fires | Text |
 | `bcts_used` | Intervention options or behaviour change techniques, e.g. prompts, goal setting, feedback | Text |
 
 </details>
